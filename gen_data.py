@@ -15,7 +15,7 @@ def main():
     parser.add_argument("-n", "--n-samples", type=int, default=100)
     args = parser.parse_args()
 
-    rng = np.random.default_rng(123)
+    rng = np.random.default_rng()
 
     generator = DATASETS[args.dataset]
 
