@@ -9,6 +9,9 @@ DATA_DIR: Final[Path] = Path("data")
 VERTICES_CSV: Final[str] = "v.csv"
 EDGES_CSV: Final[str] = "e.csv"
 
+# Should be the total number of cores
+NUM_PARTITIONS: Final[int] = 12
+
 
 def parse_float(s: str) -> float:
     """The values are in the form '"123,45"' but need to be in the form '123,45' in order to be parsed by `float`"""
@@ -29,7 +32,11 @@ def parse_2d_edges(
 
 def get_vertices_and_edges(sc: SparkContext, dataset: str) -> tuple[RDD, RDD]:
     v = sc.textFile(str(DATA_DIR / dataset / VERTICES_CSV)).map(parse_2d_vertices)
-    e = sc.textFile(str(DATA_DIR / dataset / EDGES_CSV)).map(parse_2d_edges)
+    e = (
+        sc.textFile(str(DATA_DIR / dataset / EDGES_CSV))
+        .map(parse_2d_edges)
+        # .coalesce(NUM_PARTITIONS)
+    )
 
     return v, e
 
@@ -37,6 +44,17 @@ def get_vertices_and_edges(sc: SparkContext, dataset: str) -> tuple[RDD, RDD]:
 def main():
     sc = get_spark_context("assignment 1")
     v, e = get_vertices_and_edges(sc, "circles-10000")
+
+    # Give each node a read-only copy of the vertices.
+    vertices = v.collectAsMap()
+    vertices = sc.broadcast(vertices)
+
+    while e.count() > 10:
+        e = e.mapPartitions() # Compute local MSTs
+        # do shuffle
+
+    # Collect edges
+    # Compute final MST
 
 
 if __name__ == "__main__":
