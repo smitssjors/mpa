@@ -52,7 +52,7 @@ def compute_local_mst(vertices: dict[Point, float]):
     return _compute_mst
 
 
-def find_connected_components(edges: Iterable[Edge]):
+def find_connected_components(edges: Iterable[Edge]) -> list[list[Edge]]:
     # We want to only iterate over the iterator once
     edges: dict[tuple[Point, Point], Edge] = {e[0]: e for e in edges}
     adj = {v: [] for e in edges for v in e}
