@@ -48,7 +48,7 @@ def get_edges(sc: SparkContext, dataset: str, num_partitions: int) -> RDD:
 
 def kruskal(vertices: dict[Point, float], edges: list[Edge]) -> list[Edge]:
     def get_weight(edge: Edge) -> float:
-        return edge[1]  # TODO: Remove ball radius.
+        return edge[1] - vertices[edge[0][0]] - vertices[edge[0][1]]
 
     edges = sorted(edges, key=get_weight)
 
