@@ -1,7 +1,8 @@
+import math
+from argparse import ArgumentParser
 from collections.abc import Iterable
 from pathlib import Path
-from pprint import pprint
-from typing import Final
+from typing import Final, Optional
 
 from pyspark import RDD, SparkContext
 
@@ -17,7 +18,9 @@ EDGES_CSV: Final[str] = "e.csv"
 
 
 def parse_float(s: str) -> float:
-    """The values are in the form '"123,45"' but need to be in the form '123,45' in order to be parsed by `float`"""
+    # The values are in the form '"123,45"'
+    # but need to be in the form '123,45'
+    # in order to be parsed by `float`
     return float(s[1:-1])
 
 
@@ -31,89 +34,139 @@ def parse_2d_edges(csv_line: str) -> Edge:
     return (((p1x, p1y), (p2x, p2y)), w)
 
 
-def get_vertices_and_edges(sc: SparkContext, dataset: str) -> tuple[RDD, RDD]:
-    v = sc.textFile(str(DATA_DIR / dataset / VERTICES_CSV)).map(parse_2d_vertices)
-    e = sc.textFile(str(DATA_DIR / dataset / EDGES_CSV)).map(parse_2d_edges)
-
-    return v, e
+def get_vertices(sc: SparkContext, dataset: str) -> RDD:
+    return sc.textFile(str(DATA_DIR / dataset / VERTICES_CSV)).map(parse_2d_vertices)
 
 
-def compute_mst(vertices: dict[Point, float], edges: dict[Edge, float]):
-    ...
+def get_edges(sc: SparkContext, dataset: str, num_partitions: int) -> RDD:
+    return (
+        sc.textFile(str(DATA_DIR / dataset / EDGES_CSV))
+        .map(parse_2d_edges)
+        .repartition(num_partitions)
+    )
 
 
-def compute_local_mst(vertices: dict[Point, float]):
-    def _compute_mst(edges: Iterable[Edge]) -> Iterable[Edge]:
-        # The edges can form multiple disjunct subgraphs.
-        # Thus we find all connected components and compute the MSTs for all of them.
-        # Then we return the union of the MSTs.
-        ...
+def kruskal(vertices: dict[Point, float], edges: list[Edge]) -> list[Edge]:
+    def get_weight(edge: Edge) -> float:
+        return edge[1]  # TODO: Remove ball radius.
+
+    edges = sorted(edges, key=get_weight)
+
+    parent = {}
+    rank = {}
+
+    def make_set(vertex: Point):
+        parent[vertex] = vertex
+        rank[vertex] = 0
+
+    def find_set(vertex: Point) -> Point:
+        while parent[vertex] != vertex:
+            vertex, parent[vertex] = parent[vertex], parent[parent[vertex]]
+
+        return vertex
+
+    def union_set(x: Point, y: Point):
+        x = find_set(x)
+        y = find_set(y)
+
+        if x == y:
+            return
+
+        if rank[x] < rank[y]:
+            x, y = y, x
+
+        parent[y] = x
+
+        if rank[x] == rank[y]:
+            rank[x] = rank[x] + 1
+
+    result = []
+
+    for vertex in vertices:
+        make_set(vertex)
+
+    for edge in edges:
+        (u, v), _ = edge
+        x = find_set(u)
+        y = find_set(v)
+
+        if x != y:
+            result.append(edge)
+            union_set(x, y)
+
+    return result
+
+
+def compute_mst(vertices: dict[Point, float]):
+    def _compute_mst(edges: Iterable[Edge]) -> list[Edge]:
+        # Convert edges to a list to prevent
+        # the iterable from being consumed multiple times.
+        edges = list(edges)
+        return kruskal(vertices, edges)
 
     return _compute_mst
 
 
-def find_connected_components(edges: Iterable[Edge]) -> list[list[Edge]]:
-    # We want to only iterate over the iterator once
-    edges: dict[tuple[Point, Point], Edge] = {e[0]: e for e in edges}
-    adj = {v: [] for e in edges for v in e}
-    for edge in edges:
-        adj[edge[0]].append(edge[1])
-        adj[edge[1]].append(edge[0])
-
-    visited = set()
-
-    def dfs(v: Vertex, component: set[Edge]):
-        visited.add(v)
-
-        for n in adj[v]:
-            edge = edges.get((v, n)) or edges[(n, v)]
-            component.add(edge)
-
-            if n not in visited:
-                dfs(n, component)
-
-    components = []
-
-    for v in adj.keys():
-        if v not in visited:
-            component = set()
-            dfs(v, component)
-            components.append(list(component))
-
-    return components
-
-
 def main():
+    parser = ArgumentParser()
+    parser.add_argument("dataset")
+    parser.add_argument("-e", type=float, default=0.8)
+    parser.add_argument("-n", type=int)
+    parser.add_argument("-m", type=int)
+    args = parser.parse_args()
+
+    dataset: str = args.dataset
+    epsilon: float = args.e
+    num_vertices: Optional[int] = args.n
+    num_edges: Optional[int] = args.m
+
     sc = get_spark_context("assignment 1")
-    v, e = get_vertices_and_edges(sc, "material")
+    vertices = get_vertices(sc, dataset)
+
+    # The user can give n to speed up the process. Otherwise it is computed.
+    if num_vertices is None:
+        num_vertices = vertices.count()
+
+    # Memory per machine.
+    memory_per_machine = math.ceil(num_vertices ** (1 + epsilon))
+
+    # Same as for n but if not given we assume that the graph is a clique.
+    if num_edges is None:
+        num_edges = int((num_vertices * (num_vertices - 1)) / 2)
+
+    # Number of machines needed.
+    num_machines = math.ceil(num_edges / memory_per_machine)
+
+    edges = get_edges(sc, dataset, num_machines)
+
+    print(f"{num_vertices=}, {num_edges=}, {num_machines=}, {memory_per_machine=}")
 
     # Give each node a read-only copy of the vertices.
-    vertices = v.collectAsMap()
+    vertices = vertices.collectAsMap()
     vertices = sc.broadcast(vertices)
 
-    # edges = e.collect()
+    first = True
 
-    # pprint(find_connected_components(edges))
+    while num_edges > memory_per_machine:
+        # In the first iteration we can skip shuffling the data.
+        # This is already done when reading in the RDD.
+        if not first:
+            num_machines = math.ceil(num_edges / memory_per_machine)
 
-    # pprint(e.glom().collect())
+            # Reduce the number of partitions and
+            # shuffle the edges between the partitions.
+            edges = edges.coalesce(num_machines, shuffle=True)
+        else:
+            first = False
 
-    pprint(e.mapPartitions(find_connected_components).collect())
+        # On each machine a.k.a. partition compute the MST.
+        edges = edges.mapPartitions(compute_mst(vertices.value))
+        num_edges = edges.count()
 
-    # num_partitions = e.getNumPartitions()
-
-    # first = True
-
-    # while e.count() > 10:
-    #     # In the first iteration we can skip shuffling
-    #     if not first:
-    #         e = e.repartition(num_partitions)
-    #     else:
-    #         first = False
-
-    #     e = e.mapPartitions(test)  # Compute local MSTs
-
-    # Collect edges
-    # Compute final MST
+    # All the edges fit on one machine so collect them and compute the final MST.
+    edges = edges.collect()
+    result = kruskal(vertices.value, edges)
+    print(len(result))
 
 
 if __name__ == "__main__":
