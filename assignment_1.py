@@ -48,7 +48,13 @@ def get_edges(sc: SparkContext, dataset: str, num_partitions: int) -> RDD:
 
 def kruskal(vertices: dict[Point, float], edges: list[Edge]) -> list[Edge]:
     def get_weight(edge: Edge) -> float:
-        return edge[1] - vertices[edge[0][0]] - vertices[edge[0][1]]
+        # Since each vertex is actually a ball, the weight of the edge gets smaller
+        # by the radius' of the two endpoints.
+        (u, v), w = edge
+        w = w - vertices[u] - vertices[v]
+
+        # However, if two balls overlap the distance between them is 0 and not negative.
+        return max(w, 0)
 
     edges = sorted(edges, key=get_weight)
 
