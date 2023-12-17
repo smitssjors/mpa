@@ -52,8 +52,8 @@ def kruskal(vertices: dict[Point, float], edges: list[Edge]) -> list[Edge]:
 
     edges = sorted(edges, key=get_weight)
 
-    parent = {}
-    rank = {}
+    parent: dict[Point, Point] = {}
+    rank: dict[Point, int] = {}
 
     def make_set(vertex: Point):
         parent[vertex] = vertex
@@ -102,6 +102,11 @@ def compute_mst(vertices: dict[Point, float]):
         # Convert edges to a list to prevent
         # the iterable from being consumed multiple times.
         edges = list(edges)
+
+        # We use Kruskal's algorithm to compute the MST on each machine
+        # since it has the nice property that if the graph is not connected
+        # (which is might be the case)
+        # it computes the minimum spanning forest.
         return kruskal(vertices, edges)
 
     return _compute_mst
