@@ -2,3 +2,4 @@ pyspark
 numpy
 black
 scikit-learn
+matplotlib
