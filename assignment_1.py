@@ -20,7 +20,7 @@ EDGES_CSV: Final[str] = "e.csv"
 def parse_float(s: str) -> float:
     # The values are in the form '"123,45"'
     # but need to be in the form '123,45'
-    # in order to be parsed by `float`
+    # in order to be parsed by `float`.
     return float(s[1:-1])
 
 
