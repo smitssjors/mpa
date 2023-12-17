@@ -132,10 +132,9 @@ def main():
     if num_vertices is None:
         num_vertices = vertices.count()
 
-    # Memory per machine.
     memory_per_machine = math.ceil(num_vertices ** (1 + epsilon))
 
-    # Same as for n but if not given we assume that the graph is a clique.
+    # Same as for num_vertices but if not given we assume that the graph is a clique.
     if num_edges is None:
         num_edges = int((num_vertices * (num_vertices - 1)) / 2)
 
