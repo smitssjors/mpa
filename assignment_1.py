@@ -48,13 +48,7 @@ def get_edges(sc: SparkContext, dataset: str, num_partitions: int) -> RDD:
 
 def kruskal(vertices: dict[Point, float], edges: list[Edge]) -> list[Edge]:
     def get_weight(edge: Edge) -> float:
-        # Since each vertex is actually a ball, the weight of the edge gets smaller
-        # by the radius' of the two endpoints.
-        (u, v), w = edge
-        w = w - vertices[u] - vertices[v]
-
-        # However, if two balls overlap the distance between them is 0 and not negative.
-        return max(w, 0)
+        return edge[1]
 
     edges = sorted(edges, key=get_weight)
 
@@ -118,6 +112,20 @@ def compute_mst(vertices: dict[Point, float]):
     return _compute_mst
 
 
+def update_weights(vertices: dict[Point, float]):
+    def _update_weights(edge: Edge) -> Edge:
+        # Since each vertex is actually a ball, the weight of the edge gets smaller
+        # by the radius' of the two endpoints.
+        (u, v), w = edge
+        w = w - vertices[u] - vertices[v]
+        # However, if two balls overlap the distance between them is 0 and not negative.
+        w = max(w, 0)
+
+        return ((u, v), w)
+
+    return _update_weights
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument("dataset")
@@ -154,6 +162,9 @@ def main():
     # Give each node a read-only copy of the vertices.
     vertices = vertices.collectAsMap()
     vertices = sc.broadcast(vertices)
+
+    # We first update all the edge weights depending on the radius' of the endpoints
+    edges = edges.map(update_weights(vertices.value))
 
     first = True
 

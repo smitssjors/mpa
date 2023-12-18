@@ -1,5 +1,5 @@
 pyspark
 numpy
-black
+black[jupyter]
 scikit-learn
 matplotlib
