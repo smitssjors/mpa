@@ -1,5 +1,6 @@
 import math
 import csv
+import numpy as np
 from argparse import ArgumentParser
 from collections.abc import Iterable
 from pathlib import Path
@@ -197,11 +198,11 @@ def main():
             if row[1] != 0:
                 print('found a distance different than 0', row[1])
 
-            v1_x, v1_y = str(row[0][0][0]), str(row[0][0][1])
-            v2_x, v2_y = str(row[0][1][0]), str(row[0][1][1])
-            dist = str(row[1])
-            csvRow = v1_x + ", " + v1_y + ", " + v2_x + ", " + v2_y + ", " + dist
-            mst_csv_writer.writerow(csvRow)
+            v1_x, v1_y = row[0][0][0], row[0][0][1]
+            v2_x, v2_y = row[0][1][0] ,row[0][1][1]
+            dist = row[1]
+
+            mst_csv_writer.writerow([v1_x, v1_y,v2_x, v2_y, dist])
 
     print(len(result))
 
