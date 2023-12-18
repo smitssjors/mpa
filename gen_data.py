@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Callable, Final
 
 import numpy as np
-from sklearn.datasets import make_circles
+from sklearn.datasets import make_circles, make_blobs, make_moons
 
-DATASETS: Final[dict[str, Callable]] = {"circles": make_circles}
+DATASETS: Final[dict[str, Callable]] = {"circles": make_circles, "blobs": make_blobs, "moons": make_moons}
 
 
 def main():
@@ -26,7 +26,6 @@ def main():
 
     with open(dest_dir / "v.csv", "w+", newline="") as vertices_csv:
         vertices_csv_writer = csv.writer(vertices_csv, dialect="unix")
-
         with open(dest_dir / "e.csv", "w+", newline="") as edges_csv:
             edges_csv_writer = csv.writer(edges_csv, dialect="unix")
 

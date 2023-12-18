@@ -11,7 +11,7 @@ from util import get_spark_context
 Point = tuple[float, float]
 Vertex = tuple[Point, float]
 Edge = tuple[tuple[Point, Point], float]
-
+(((1,2), (1,2)), 3)
 DATA_DIR: Final[Path] = Path("data")
 VERTICES_CSV: Final[str] = "v.csv"
 EDGES_CSV: Final[str] = "e.csv"
