@@ -1,4 +1,5 @@
 import math
+import csv
 from argparse import ArgumentParser
 from collections.abc import Iterable
 from pathlib import Path
@@ -187,6 +188,21 @@ def main():
     # All the edges fit on one machine so collect them and compute the final MST.
     edges = edges.collect()
     result = kruskal(vertices.value, edges)
+
+    dest_dir = Path(f"data/{args.dataset}")
+
+    with open(dest_dir / "mst.csv", "w+", newline="") as mst_csv:
+        mst_csv_writer = csv.writer(mst_csv, dialect="unix")
+        for row in result:
+            if row[1] != 0:
+                print('found a distance different than 0', row[1])
+
+            v1_x, v1_y = str(row[0][0][0]), str(row[0][0][1])
+            v2_x, v2_y = str(row[0][1][0]), str(row[0][1][1])
+            dist = str(row[1])
+            csvRow = v1_x + ", " + v1_y + ", " + v2_x + ", " + v2_y + ", " + dist
+            mst_csv_writer.writerow(csvRow)
+
     print(len(result))
 
 
