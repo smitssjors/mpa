@@ -121,7 +121,7 @@ def compute_mst(vertices: dict[Point, float]):
 def main():
     parser = ArgumentParser()
     parser.add_argument("dataset")
-    parser.add_argument("-e", type=float, default=0.8)
+    parser.add_argument("-e", type=float, default=0.2)
     parser.add_argument("-n", type=int)
     parser.add_argument("-m", type=int)
     args = parser.parse_args()
