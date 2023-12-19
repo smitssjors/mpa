@@ -1,6 +1,5 @@
-import math
 import csv
-import numpy as np
+import math
 from argparse import ArgumentParser
 from collections.abc import Iterable
 from pathlib import Path
@@ -13,7 +12,7 @@ from util import get_spark_context
 Point = tuple[float, float]
 Vertex = tuple[Point, float]
 Edge = tuple[tuple[Point, Point], float]
-(((1,2), (1,2)), 3)
+
 DATA_DIR: Final[Path] = Path("data")
 VERTICES_CSV: Final[str] = "v.csv"
 EDGES_CSV: Final[str] = "e.csv"
@@ -49,10 +48,7 @@ def get_edges(sc: SparkContext, dataset: str, num_partitions: int) -> RDD:
 
 
 def kruskal(vertices: dict[Point, float], edges: list[Edge]) -> list[Edge]:
-    def get_weight(edge: Edge) -> float:
-        return edge[1]
-
-    edges = sorted(edges, key=get_weight)
+    edges = sorted(edges, key=lambda e: e[1])
 
     parent: dict[Point, Point] = {}
     rank: dict[Point, int] = {}
@@ -117,7 +113,7 @@ def compute_mst(vertices: dict[Point, float]):
 def update_weights(vertices: dict[Point, float]):
     def _update_weights(edge: Edge) -> Edge:
         # Since each vertex is actually a ball, the weight of the edge gets smaller
-        # by the radius' of the two endpoints.
+        # by the radii of the two endpoints.
         (u, v), w = edge
         w = w - vertices[u] - vertices[v]
         # However, if two balls overlap the distance between them is 0 and not negative.
@@ -126,6 +122,12 @@ def update_weights(vertices: dict[Point, float]):
         return ((u, v), w)
 
     return _update_weights
+
+
+def scale_radius(vertex: Vertex):
+    p, r = vertex
+    r = r / 10
+    return (p, r)
 
 
 def main():
@@ -142,7 +144,7 @@ def main():
     num_edges: Optional[int] = args.m
 
     sc = get_spark_context("assignment 1")
-    vertices = get_vertices(sc, dataset)
+    vertices = get_vertices(sc, dataset).map(scale_radius)
 
     # The user can give n to speed up the process. Otherwise it is computed.
     if num_vertices is None:
@@ -165,7 +167,7 @@ def main():
     vertices = vertices.collectAsMap()
     vertices = sc.broadcast(vertices)
 
-    # We first update all the edge weights depending on the radius' of the endpoints
+    # We first update all the edge weights depending on the radii of the endpoints
     edges = edges.map(update_weights(vertices.value))
 
     first = True
@@ -196,13 +198,13 @@ def main():
         mst_csv_writer = csv.writer(mst_csv, dialect="unix")
         for row in result:
             if row[1] != 0:
-                print('found a distance different than 0', row[1])
+                print("found a distance different than 0", row[1])
 
             v1_x, v1_y = row[0][0][0], row[0][0][1]
-            v2_x, v2_y = row[0][1][0] ,row[0][1][1]
+            v2_x, v2_y = row[0][1][0], row[0][1][1]
             dist = row[1]
 
-            mst_csv_writer.writerow([v1_x, v1_y,v2_x, v2_y, dist])
+            mst_csv_writer.writerow([v1_x, v1_y, v2_x, v2_y, dist])
 
     print(len(result))
 

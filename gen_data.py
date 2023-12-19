@@ -4,9 +4,13 @@ from pathlib import Path
 from typing import Callable, Final
 
 import numpy as np
-from sklearn.datasets import make_circles, make_blobs, make_moons
+from sklearn.datasets import make_blobs, make_circles, make_moons
 
-DATASETS: Final[dict[str, Callable]] = {"circles": make_circles, "blobs": make_blobs, "moons": make_moons}
+DATASETS: Final[dict[str, Callable]] = {
+    "circles": make_circles,
+    "blobs": make_blobs,
+    "moons": make_moons,
+}
 
 
 def main():
