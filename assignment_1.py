@@ -154,7 +154,7 @@ def main():
 
     # Same as for num_vertices but if not given we assume that the graph is a clique.
     if num_edges is None:
-        num_edges = int((num_vertices * (num_vertices - 1)) / 2)
+        num_edges = (num_vertices * (num_vertices - 1)) // 2
 
     # Number of machines needed.
     num_machines = math.ceil(num_edges / memory_per_machine)
