@@ -20,28 +20,38 @@ def main():
     args = parser.parse_args()
 
     rng = np.random.default_rng()
-
+    
     generator = DATASETS[args.dataset]
 
-    dest_dir = Path(f"data/{args.dataset}-{args.n_samples}")
-    dest_dir.mkdir(parents=True, exist_ok=True)
+    def generate(type: str):
+        dest_dir = Path(f"data/{args.dataset}-{args.n_samples}-{type}")
+        dest_dir.mkdir(parents=True, exist_ok=True)
 
-    vertices, _ = generator(args.n_samples)
+        vertices, _ = generator(args.n_samples)
 
-    with open(dest_dir / "v.csv", "w+", newline="") as vertices_csv:
-        vertices_csv_writer = csv.writer(vertices_csv, dialect="unix")
-        with open(dest_dir / "e.csv", "w+", newline="") as edges_csv:
-            edges_csv_writer = csv.writer(edges_csv, dialect="unix")
+        with open(dest_dir / "v.csv", "w+", newline="") as vertices_csv:
+            vertices_csv_writer = csv.writer(vertices_csv, dialect="unix")
+            with open(dest_dir / "e.csv", "w+", newline="") as edges_csv:
+                edges_csv_writer = csv.writer(edges_csv, dialect="unix")
 
-            for i in range(len(vertices)):
-                radius = rng.random()
-                vertices_csv_writer.writerow(np.concatenate((vertices[i], [radius])))
-                for j in range(i + 1, len(vertices)):
-                    dist = np.linalg.norm(vertices[i] - vertices[j])
-                    edges_csv_writer.writerow(
-                        np.concatenate((vertices[i], vertices[j], [dist]))
-                    )
+                for i in range(len(vertices)):
+                    if type == 'low':
+                        radius = 0
+                    if type == 'medium':
+                        radius = (rng.random()*4)**4
+                    if type == 'high':
+                        radius = (rng.random()*8)**4
 
+                    vertices_csv_writer.writerow(np.concatenate((vertices[i], [radius])))
+                    for j in range(i + 1, len(vertices)):
+                        dist = np.linalg.norm(vertices[i] - vertices[j])
+                        edges_csv_writer.writerow(
+                            np.concatenate((vertices[i], vertices[j], [dist]))
+                        )
+
+    generate('low')
+    generate('medium')
+    generate('high')
 
 if __name__ == "__main__":
     main()
