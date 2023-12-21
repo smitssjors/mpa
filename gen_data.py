@@ -38,9 +38,9 @@ def main():
                     if type == 'low':
                         radius = 0
                     if type == 'medium':
-                        radius = (rng.random()*4)**4
+                        radius = rng.random()**2
                     if type == 'high':
-                        radius = (rng.random()*8)**4
+                        radius = (rng.random()* 2)**2
 
                     vertices_csv_writer.writerow(np.concatenate((vertices[i], [radius])))
                     for j in range(i + 1, len(vertices)):
