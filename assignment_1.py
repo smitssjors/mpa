@@ -126,7 +126,7 @@ def update_weights(vertices: dict[Point, float]):
 
 def scale_radius(vertex: Vertex):
     p, r = vertex
-    r = r 
+    r = r
     return (p, r)
 
 

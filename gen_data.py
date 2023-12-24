@@ -20,7 +20,7 @@ def main():
     args = parser.parse_args()
 
     rng = np.random.default_rng()
-    
+
     generator = DATASETS[args.dataset]
 
     def generate(type: str):
@@ -35,23 +35,26 @@ def main():
                 edges_csv_writer = csv.writer(edges_csv, dialect="unix")
 
                 for i in range(len(vertices)):
-                    if type == 'low':
+                    if type == "low":
                         radius = 0
-                    if type == 'medium':
-                        radius = rng.random()**2
-                    if type == 'high':
-                        radius = (rng.random()* 2)**2
+                    if type == "medium":
+                        radius = rng.random() ** 2
+                    if type == "high":
+                        radius = (rng.random() * 2) ** 2
 
-                    vertices_csv_writer.writerow(np.concatenate((vertices[i], [radius])))
+                    vertices_csv_writer.writerow(
+                        np.concatenate((vertices[i], [radius]))
+                    )
                     for j in range(i + 1, len(vertices)):
                         dist = np.linalg.norm(vertices[i] - vertices[j])
                         edges_csv_writer.writerow(
                             np.concatenate((vertices[i], vertices[j], [dist]))
                         )
 
-    generate('low')
-    generate('medium')
-    generate('high')
+    generate("low")
+    generate("medium")
+    generate("high")
+
 
 if __name__ == "__main__":
     main()
