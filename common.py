@@ -2,7 +2,7 @@ import csv
 from contextlib import contextmanager
 from pathlib import Path
 
-from pyspark import RDD, SparkConf, SparkContext
+from pyspark import SparkConf, SparkContext
 
 
 def get_spark_context(app_name: str) -> SparkContext:

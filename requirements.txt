@@ -3,3 +3,6 @@ numpy
 black[jupyter]
 scikit-learn
 matplotlib
+pandas
+seaborn
+notebook
