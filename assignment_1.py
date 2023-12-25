@@ -7,7 +7,7 @@ from typing import Final, Optional
 
 from pyspark import RDD, SparkContext
 
-from util import get_spark_context
+from common import get_spark_context
 
 Point = tuple[float, float]
 Vertex = tuple[Point, float]
