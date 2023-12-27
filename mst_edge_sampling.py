@@ -102,13 +102,11 @@ def compute_coreset(vertices: list[Vertex]):
 def main():
     parser = ArgumentParser()
     parser.add_argument("dataset")
-    parser.add_argument("-e", type=float, default=0.2)
     parser.add_argument("-n", type=int)
     parser.add_argument("-m", type=int)
     args = parser.parse_args()
 
     dataset: str = args.dataset
-    epsilon: float = args.e
     num_vertices: Optional[int] = args.n
     num_edges: Optional[int] = args.m
 
@@ -119,15 +117,17 @@ def main():
     if num_vertices is None:
         num_vertices = vertices.count()
 
-    memory_per_machine = math.ceil(num_vertices ** (1 + epsilon))
-
     edges = get_edges(sc, dataset)
 
     # Same as for num_vertices. If not given it is computed
     if num_edges is None:
         num_edges = edges.count()
 
-    print(f"{num_vertices=}, {num_edges=}, {memory_per_machine=}")
+    # Derive the memory per machine from the initial number of partitions spark creates.
+    num_machines = edges.getNumPartitions()
+    memory_per_machine = math.ceil(num_edges / num_machines)
+
+    print(f"{num_vertices=}, {num_edges=}, {num_machines=}, {memory_per_machine=}")
 
     # Give each node a read-only copy of the vertices.
     vertices = vertices.collect()
