@@ -5,11 +5,7 @@ import pandas as pd
 from pyspark import SparkContext
 from sklearn.datasets import fetch_california_housing
 
-from common import get_spark_context
-
-Vertex = tuple[float, float]
-Edge = tuple[Vertex, Vertex]
-WeightedEdge = tuple[Edge, float]
+from common import Vertex, get_spark_context
 
 
 def parse_vertex(line: str) -> Vertex:
@@ -17,24 +13,18 @@ def parse_vertex(line: str) -> Vertex:
     return (lat, long)
 
 
-def compute_weight(edge: Edge) -> WeightedEdge:
-    p1, p2 = map(np.array, edge)
+def make_edge(pair: tuple[Vertex, Vertex]) -> str:
+    p1, p2 = map(np.array, pair)
     weight = np.linalg.norm(p1 - p2)
-    return (edge, weight)
-
-
-def flatten(edge: WeightedEdge) -> str:
-    (((p1x, p1y), (p2x, p2y)), w) = edge
-    return ",".join(map(str, (p1x, p1y, p2x, p2y, w)))
+    return ",".join(map(str, (pair[0][0], pair[0][1], pair[1][0], pair[1][1], weight)))
 
 
 def generate_edges(sc: SparkContext, vertices_csv: str, out: str):
     vertices = sc.textFile(vertices_csv).map(parse_vertex)
     pairs = vertices.cartesian(vertices)
-    edges = pairs.filter(lambda pair: pair[0] < pair[1])
-    edges = edges.repartition(24)
-    edges = edges.map(compute_weight)
-    edges = edges.map(flatten)
+    pairs = pairs.filter(lambda pair: pair[0] < pair[1])
+    pairs = pairs.repartition(24)
+    edges = pairs.map(make_edge)
     edges.saveAsTextFile("data/temp")
     os.system(f"cat data/temp/part* > {out}")
     os.system("rm -rf data/temp")

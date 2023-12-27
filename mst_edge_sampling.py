@@ -6,15 +6,14 @@ from typing import Optional
 from pyspark import RDD, SparkContext
 
 from common import (
-    csv_writer,
+    Edge,
+    Vertex,
     edges_csv_path,
+    edges_to_csv,
     get_spark_context,
     mst_csv_path,
     vertices_csv_path,
 )
-
-Vertex = tuple[float, float]
-Edge = tuple[tuple[Vertex, Vertex], float]
 
 
 def parse_vertex_line(csv_line: str) -> Vertex:
@@ -156,15 +155,7 @@ def main():
     edges = edges.collect()
     result = kruskal(vertices.value, edges)
 
-    mst_path = mst_csv_path(dataset)
-
-    with csv_writer(mst_path) as writer:
-
-        def flatten(edge: Edge) -> tuple[float, float, float, float, float]:
-            (((p1x, p1y), (p2x, p2y)), w) = edge
-            return (p1x, p1y, p2x, p2y, w)
-
-        writer.writerows(map(flatten, result))
+    edges_to_csv(mst_csv_path(dataset), result)
 
     print(len(result))
 
