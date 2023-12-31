@@ -50,3 +50,8 @@ def edges_to_csv(path: str, edges: list[Edge]):
     with open(path, "w+", newline="") as file:
         writer = csv.writer(file)
         writer.writerows(edges)
+
+
+def save_mst(dataset: str, edges: list[Edge]):
+    path = mst_csv_path(dataset)
+    edges_to_csv(path, edges)

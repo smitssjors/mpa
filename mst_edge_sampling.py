@@ -9,9 +9,8 @@ from common import (
     Edge,
     Vertex,
     edges_csv_path,
-    edges_to_csv,
     get_spark_context,
-    mst_csv_path,
+    save_mst,
     vertices_csv_path,
 )
 
@@ -26,12 +25,12 @@ def parse_edge_line(csv_line: str) -> Edge:
     return (((p1x, p1y), (p2x, p2y)), w)
 
 
-def get_vertices(sc: SparkContext, dataset: str) -> RDD:
+def get_vertices(sc: SparkContext, dataset: str) -> RDD[Vertex]:
     vertices_path = vertices_csv_path(dataset)
     return sc.textFile(vertices_path).map(parse_vertex_line)
 
 
-def get_edges(sc: SparkContext, dataset: str) -> RDD:
+def get_edges(sc: SparkContext, dataset: str) -> RDD[Edge]:
     edges_path = edges_csv_path(dataset)
     return sc.textFile(edges_path).map(parse_edge_line)
 
@@ -102,24 +101,17 @@ def compute_coreset(vertices: list[Vertex]):
 def main():
     parser = ArgumentParser()
     parser.add_argument("dataset")
-    parser.add_argument("-n", type=int)
     parser.add_argument("-m", type=int)
     args = parser.parse_args()
 
     dataset: str = args.dataset
-    num_vertices: Optional[int] = args.n
     num_edges: Optional[int] = args.m
 
     sc = get_spark_context("MST Edge Sampling")
-    vertices = get_vertices(sc, dataset)
-
-    # The user can give n to speed up the process. Otherwise it is computed.
-    if num_vertices is None:
-        num_vertices = vertices.count()
-
     edges = get_edges(sc, dataset)
 
-    # Same as for num_vertices. If not given it is computed
+    # The user can give the number of edges to speed up the process.
+    # If not given it is computed
     if num_edges is None:
         num_edges = edges.count()
 
@@ -127,9 +119,10 @@ def main():
     num_machines = edges.getNumPartitions()
     memory_per_machine = math.ceil(num_edges / num_machines)
 
-    print(f"{num_vertices=}, {num_edges=}, {num_machines=}, {memory_per_machine=}")
+    print(f"{num_edges=}, {num_machines=}, {memory_per_machine=}")
 
     # Give each node a read-only copy of the vertices.
+    vertices = get_vertices(sc, dataset)
     vertices = vertices.collect()
     vertices = sc.broadcast(vertices)
 
@@ -155,7 +148,7 @@ def main():
     edges = edges.collect()
     result = kruskal(vertices.value, edges)
 
-    edges_to_csv(mst_csv_path(dataset), result)
+    save_mst(dataset, result)
 
     print(len(result))
 
