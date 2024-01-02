@@ -1,9 +1,10 @@
+import csv
 from argparse import ArgumentParser
 
 import numpy as np
 from pyspark import RDD, SparkContext
 
-from common import get_spark_context, vertices_csv_path
+from common import centers_csv_path, get_spark_context, vertices_csv_path
 
 Point = np.ndarray
 
@@ -26,6 +27,11 @@ def closest_center(centers: np.ndarray):
     return closest_center
 
 
+def save_centers(dataset: str, centers: np.ndarray):
+    path = centers_csv_path(dataset)
+    np.savetxt(path, centers, delimiter=",")
+
+
 def main():
     parser = ArgumentParser()
     parser = ArgumentParser()
@@ -36,10 +42,10 @@ def main():
     dataset: str = args.dataset
     k: int = args.k
 
-    sc = get_spark_context("Scalable k-means")
+    sc = get_spark_context("Lloyd's k-means")
     points = get_points(sc, dataset).repartition(12)
 
-    centers = np.vstack(points.takeSample(False, k, 9))
+    centers = np.vstack(points.takeSample(False, k))
     changed = True
 
     while changed:
@@ -64,6 +70,8 @@ def main():
 
         changed = not np.array_equal(centers, new_centers)
         centers = new_centers
+
+    save_centers(dataset, centers)
 
 
 if __name__ == "__main__":

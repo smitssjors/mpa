@@ -8,6 +8,7 @@ DATA_DIR: Final[Path] = Path("data")
 VERTICES_CSV: Final[Path] = Path("v.csv")
 EDGES_CSV: Final[Path] = Path("e.csv")
 MST_CSV: Final[Path] = Path("mst.csv")
+CENTERS_CSV: Final[Path] = Path("centers.csv")
 
 Vertex = tuple[float, float]
 Edge = tuple[tuple[Vertex, Vertex], float]
@@ -23,6 +24,10 @@ def edges_csv_path(dataset: str) -> str:
 
 def mst_csv_path(dataset: str) -> str:
     return str(DATA_DIR / dataset / MST_CSV)
+
+
+def centers_csv_path(dataset: str) -> str:
+    return str(DATA_DIR / dataset / CENTERS_CSV)
 
 
 def flatten(edge: Edge) -> tuple[float, float, float, float, float]:
