@@ -6,18 +6,21 @@ from pyspark import RDD, SparkContext
 
 from common import get_spark_context, vertices_csv_path
 
+Point = np.ndarray
+PartialMean = tuple[Point, int]
 
-def parse_point(csv_line: str) -> np.ndarray:
+
+def parse_point(csv_line: str) -> Point:
     return np.fromstring(csv_line, dtype=np.float64, sep=",", count=2)
 
 
-def get_points(sc: SparkContext, dataset: str) -> RDD[np.ndarray]:
+def get_points(sc: SparkContext, dataset: str) -> RDD[Point]:
     path = vertices_csv_path(dataset)
     return sc.textFile(path).map(parse_point)
 
 
 def closest_center(centers: np.ndarray):
-    def closest_center(point: np.ndarray) -> tuple[int, np.ndarray]:
+    def closest_center(point: Point) -> tuple[int, Point]:
         distances = np.linalg.norm(centers - point, axis=1)
         i = np.argmin(distances)
         return i, point
@@ -25,17 +28,12 @@ def closest_center(centers: np.ndarray):
     return closest_center
 
 
-def temp(point: np.ndarray) -> np.ndarray:
-    return np.append(point, 1)
-
-def seq(agg: np.ndarray, point: np.ndarray) -> np.ndarray:
-    agg += np.append(point, 1)
-    return agg
+def seq(partial: PartialMean, point: Point) -> PartialMean:
+    return partial[0] + point, partial[1] + 1
 
 
-def comb(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    x += y
-    return x
+def comb(x: PartialMean, y: PartialMean) -> PartialMean:
+    return x[0] + y[0], x[1] + y[1]
 
 
 def main():
@@ -58,12 +56,9 @@ def main():
     while changed:
         centers = sc.broadcast(centers)
         closest = points.map(closest_center(centers.value))
-        # combineByKey
-        # aggByKey
-        # mapPartitions with np
 
-        closest = closest.combineByKey(temp, seq, comb)
-        closest = closest.mapValues(lambda x: x[:2] / x[2])
+        closest = closest.combineByKey((np.zeros(2), 0), seq, comb)
+        closest = closest.mapValues(lambda x: x[0] / x[1])
 
         # sort by key
         # collect + sort
@@ -75,7 +70,7 @@ def main():
         changed = not np.array_equal(centers.value, closest)
         centers.destroy()
         centers = closest
-    
+
     pprint(centers)
 
 
