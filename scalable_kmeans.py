@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from pprint import pprint
 
 import numpy as np
 from pyspark import RDD, SparkContext
@@ -7,7 +6,6 @@ from pyspark import RDD, SparkContext
 from common import get_spark_context, vertices_csv_path
 
 Point = np.ndarray
-PartialMean = tuple[Point, int]
 
 
 def parse_point(csv_line: str) -> Point:
@@ -28,14 +26,6 @@ def closest_center(centers: np.ndarray):
     return closest_center
 
 
-def seq(partial: PartialMean, point: Point) -> PartialMean:
-    return partial[0] + point, partial[1] + 1
-
-
-def comb(x: PartialMean, y: PartialMean) -> PartialMean:
-    return x[0] + y[0], x[1] + y[1]
-
-
 def main():
     parser = ArgumentParser()
     parser = ArgumentParser()
@@ -50,28 +40,30 @@ def main():
     points = get_points(sc, dataset).repartition(12)
 
     centers = np.vstack(points.takeSample(False, k, 9))
-    pprint(centers)
     changed = True
 
     while changed:
-        centers = sc.broadcast(centers)
-        closest = points.map(closest_center(centers.value))
+        # Compute the closest center for each point.
+        # Point -> (index of closest center, point) pair.
+        closest = points.map(closest_center(centers))
 
-        closest = closest.combineByKey((np.zeros(2), 0), seq, comb)
-        closest = closest.mapValues(lambda x: x[0] / x[1])
+        # Compute the partial means for the new centers
+        partial_mean = closest.aggregateByKey(
+            (np.zeros(2), 0),
+            lambda x, p: (x[0] + p, x[1] + 1),
+            lambda x, y: (x[0] + y[0], x[1] + y[1]),
+        )
 
-        # sort by key
-        # collect + sort
-        closest = closest.collect()
-        closest = sorted(closest, key=lambda x: x[0])
-        closest = list(map(lambda x: x[1], closest))
-        closest = np.vstack(closest)
+        # Compute the actual new centers
+        new_centers = partial_mean.mapValues(lambda x: x[0] / x[1])
 
-        changed = not np.array_equal(centers.value, closest)
-        centers.destroy()
-        centers = closest
+        new_centers = new_centers.collect()
+        new_centers = sorted(new_centers, key=lambda x: x[0])
+        new_centers = list(map(lambda x: x[1], new_centers))
+        new_centers = np.vstack(new_centers)
 
-    pprint(centers)
+        changed = not np.array_equal(centers, new_centers)
+        centers = new_centers
 
 
 if __name__ == "__main__":
