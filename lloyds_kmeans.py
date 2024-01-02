@@ -34,7 +34,6 @@ def save_centers(dataset: str, centers: np.ndarray):
 
 def main():
     parser = ArgumentParser()
-    parser = ArgumentParser()
     parser.add_argument("dataset")
     parser.add_argument("k", type=int)
     args = parser.parse_args()
