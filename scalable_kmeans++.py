@@ -28,38 +28,42 @@ def closest_center(centers: np.ndarray):
 
 
 def distance(centers: np.ndarray):
-    def distance(point: Point) -> tuple[np.ndarray,float]:
-        d =  np.min(np.square(np.linalg.norm(centers - point)))
-        return point, d
-    
+    def distance(point: Point) -> float:
+        return np.min(np.square(np.linalg.norm(centers - point)))
+
     return distance
+
+
+def compute_cost(points: RDD[Point], centers: np.ndarray) -> float:
+    return points.map(distance(centers)).sum()
+
+
+def sample(
+    points: RDD[Point], centers: np.ndarray, l: float, cost: float
+) -> np.ndarray:
+    rng = np.random.default_rng()
+    dist = distance(centers)
+
+    def test(point: Point):
+        return rng.random() < ((l * dist(point)) / cost)
+
+    return np.vstack(points.filter(test).collect())
+
 
 def k_meansbb(points: RDD[Point], k: int, l: float) -> np.ndarray:
     # Pick an initial center at random
     centers = np.vstack(points.takeSample(False, 1))
-    pairs = points.map(distance(centers))
-    cost = pairs.values().sum()
-    print(l)
-    rng = np.random.Generator(np.random.PCG64DXSM())
-    print(int(np.log2(cost)))
+    cost = compute_cost(points, centers)
+
     for _ in range(int(np.log2(cost))):
-        new_centers = pairs.filter(lambda p: rng.random() < ((l * p[1]) / cost))
-        print(new_centers.count())
-        new_centers = new_centers.keys()
-        new_centers = new_centers.collect()
-        new_centers = np.vstack(new_centers)
+        new_centers = sample(points, centers, l, cost)
 
         centers = np.concatenate([centers, new_centers])
         centers = np.unique(centers, axis=0)
 
-        pairs = points.map(distance(centers))
-        cost = pairs.values().sum()
+        cost = compute_cost(points, centers)
 
     print(len(centers))
-        
-
-
-
 
 
 def lloyds(points: RDD[Point], centers: np.ndarray, k: int) -> np.ndarray:
