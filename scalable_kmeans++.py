@@ -1,10 +1,10 @@
-import csv
 from argparse import ArgumentParser
+from typing import Iterable
 
 import numpy as np
 from pyspark import RDD, SparkContext
 
-from common import centers_csv_path, get_spark_context, vertices_csv_path
+from common import get_spark_context, vertices_csv_path
 
 Point = np.ndarray
 
@@ -27,23 +27,77 @@ def closest_center(centers: np.ndarray):
     return closest_center
 
 
-def save_centers(dataset: str, centers: np.ndarray):
-    path = centers_csv_path(dataset)
-    np.savetxt(path, centers, delimiter=",")
+def distance(centers: np.ndarray):
+    def distance(point: Point) -> tuple[np.ndarray,float]:
+        d =  np.min(np.square(np.linalg.norm(centers - point)))
+        return point, d
+    
+    return distance
+
+def k_meansbb(points: RDD[Point], k: int, l: float) -> np.ndarray:
+    # Pick an initial center at random
+    centers = np.vstack(points.takeSample(False, 1))
+    pairs = points.map(distance(centers))
+    cost = pairs.values().sum()
+    print(l)
+    rng = np.random.Generator(np.random.PCG64DXSM())
+    print(int(np.log2(cost)))
+    for _ in range(int(np.log2(cost))):
+        new_centers = pairs.filter(lambda p: rng.random() < ((l * p[1]) / cost))
+        print(new_centers.count())
+        new_centers = new_centers.keys()
+        new_centers = new_centers.collect()
+        new_centers = np.vstack(new_centers)
+
+        centers = np.concatenate([centers, new_centers])
+        centers = np.unique(centers, axis=0)
+
+        pairs = points.map(distance(centers))
+        cost = pairs.values().sum()
+
+    print(len(centers))
+        
+
+
+
+
+
+def lloyds(points: RDD[Point], centers: np.ndarray, k: int) -> np.ndarray:
+    pass
 
 
 def main():
     parser = ArgumentParser()
     parser.add_argument("dataset")
     parser.add_argument("k", type=int)
+    parser.add_argument("-l", type=float, default=0.5)
     args = parser.parse_args()
 
     dataset: str = args.dataset
     k: int = args.k
+    l: float = args.l
 
-    sc = get_spark_context("Lloyd's k-means")
+    # Oversampling factor
+    l = k * l
+
+    sc = get_spark_context("k-means|| -> k-means++ -> lloyd's")
     points = get_points(sc, dataset).repartition(12)
 
+    initial_centers = k_meansbb(points, k, l)
+    centers = lloyds(points, initial_centers, k)
+
+    return
+
+    initial_center = points.takeSample(False, 1)
+    initial_cost = points.aggregate(
+        0.0,
+        lambda l, p: l + np.square(np.linalg.norm(initial_center - p)),
+        lambda x, y: x + y,
+    )
+
+    print(initial_cost)
+
+    return
     centers = np.vstack(points.takeSample(False, k))
     changed = True
 
@@ -69,8 +123,6 @@ def main():
 
         changed = not np.array_equal(centers, new_centers)
         centers = new_centers
-
-    save_centers(dataset, centers)
 
 
 if __name__ == "__main__":
