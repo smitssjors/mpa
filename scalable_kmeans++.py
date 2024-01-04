@@ -1,5 +1,6 @@
+import sys
 from argparse import ArgumentParser
-from typing import Iterable
+from typing import Iterable, Optional
 
 import numpy as np
 from pyspark import RDD, SparkContext
@@ -7,6 +8,7 @@ from pyspark import RDD, SparkContext
 from common import get_spark_context, vertices_csv_path
 
 Point = np.ndarray
+PointWithDist = tuple[Point, np.float64]
 
 
 def parse_point(csv_line: str) -> Point:
@@ -18,56 +20,8 @@ def get_points(sc: SparkContext, dataset: str) -> RDD[Point]:
     return sc.textFile(path).map(parse_point)
 
 
-def closest_center(centers: np.ndarray):
-    def closest_center(point: Point) -> tuple[int, Point]:
-        distances = np.linalg.norm(centers - point, axis=1)
-        i = np.argmin(distances)
-        return i, point
-
-    return closest_center
-
-
-def distance(centers: np.ndarray):
-    def distance(point: Point) -> float:
-        return np.min(np.square(np.linalg.norm(centers - point)))
-
-    return distance
-
-
-def compute_cost(points: RDD[Point], centers: np.ndarray) -> float:
-    return points.map(distance(centers)).sum()
-
-
-def sample(
-    points: RDD[Point], centers: np.ndarray, l: float, cost: float
-) -> np.ndarray:
-    rng = np.random.default_rng()
-    dist = distance(centers)
-
-    def test(point: Point):
-        return rng.random() < ((l * dist(point)) / cost)
-
-    return np.vstack(points.filter(test).collect())
-
-
-def k_meansbb(points: RDD[Point], k: int, l: float) -> np.ndarray:
-    # Pick an initial center at random
-    centers = np.vstack(points.takeSample(False, 1))
-    cost = compute_cost(points, centers)
-
-    for _ in range(int(np.log2(cost))):
-        new_centers = sample(points, centers, l, cost)
-
-        centers = np.concatenate([centers, new_centers])
-        centers = np.unique(centers, axis=0)
-
-        cost = compute_cost(points, centers)
-
-    print(len(centers))
-
-
-def lloyds(points: RDD[Point], centers: np.ndarray, k: int) -> np.ndarray:
-    pass
+def union(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return np.unique(np.concatenate([a, b]), axis=0)
 
 
 def main():
@@ -75,40 +29,90 @@ def main():
     parser.add_argument("dataset")
     parser.add_argument("k", type=int)
     parser.add_argument("-l", type=float, default=0.5)
+    parser.add_argument("-s", type=int)
     args = parser.parse_args()
 
     dataset: str = args.dataset
     k: int = args.k
     l: float = args.l
+    seed: Optional[int] = args.s
 
-    # Oversampling factor
+    # Oversampling factor.
     l = k * l
+
+    rng = np.random.default_rng(seed)
 
     sc = get_spark_context("k-means|| -> k-means++ -> lloyd's")
     points = get_points(sc, dataset).repartition(12)
 
-    initial_centers = k_meansbb(points, k, l)
-    centers = lloyds(points, initial_centers, k)
+    ### Start of k-means||
+    # Pick and initial center at random.
+    centers = np.vstack(points.takeSample(False, 1, seed))
 
-    return
+    def update_distances() -> RDD[PointWithDist]:
+        def distance(point: Point) -> PointWithDist:
+            dist = np.min(np.square(np.linalg.norm(centers - point)))
+            return point, dist
 
-    initial_center = points.takeSample(False, 1)
-    initial_cost = points.aggregate(
-        0.0,
-        lambda l, p: l + np.square(np.linalg.norm(initial_center - p)),
-        lambda x, y: x + y,
-    )
+        return points.map(distance)
 
-    print(initial_cost)
+    points_with_dist = update_distances()
 
-    return
-    centers = np.vstack(points.takeSample(False, k))
+    def compute_cost() -> float:
+        return points_with_dist.values().sum()
+
+    cost = compute_cost()
+
+    def sample() -> np.arange:
+        _seed = rng.integers(0, sys.maxsize)
+
+        def filter(split: int, points: Iterable[PointWithDist]) -> Iterable[Point]:
+            _rng = np.random.default_rng([split, _seed])
+
+            for point in points:
+                if _rng.random() < ((l * point[1]) / cost):
+                    yield point[0]
+
+        new_centers = points_with_dist.mapPartitionsWithIndex(filter)
+        return np.vstack(new_centers.collect())
+
+    for i in np.arange(np.log2(cost)):
+        if i != 0:
+            points_with_dist = update_distances()
+            cost = compute_cost()
+
+        new_centers = sample()
+        centers = union(centers, new_centers)
+
+    ### k-means++ to cluster the points from k-means|| to k
+    old_centers = centers
+    centers = np.reshape(rng.choice(old_centers), (1, -1))
+
+    def compute_distances() -> np.ndarray:
+        distances = (
+            np.min(np.square(np.linalg.norm(centers - point))) for point in old_centers
+        )
+        return np.fromiter(distances, dtype=np.float64)
+
+    while len(centers) < k:
+        distances = compute_distances()
+        cost = np.sum(distances)
+        p = distances / cost
+        new_center = np.reshape(rng.choice(old_centers, p=p), (1, -1))
+        centers = union(centers, new_center)
+
+    ### Lloyds
+    def closest_center(point: Point) -> tuple[int, Point]:
+        distances = np.linalg.norm(centers - point, axis=1)
+        i = np.argmin(distances)
+        return i, point
+
     changed = True
 
     while changed:
         # Compute the closest center for each point.
         # Point -> (index of closest center, point) pair.
-        closest = points.map(closest_center(centers))
+        closest = points.map(closest_center)
 
         # Compute the partial means for the new centers
         partial_mean = closest.aggregateByKey(
@@ -127,6 +131,8 @@ def main():
 
         changed = not np.array_equal(centers, new_centers)
         centers = new_centers
+
+    print(centers)
 
 
 if __name__ == "__main__":
