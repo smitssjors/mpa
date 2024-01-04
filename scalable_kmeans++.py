@@ -5,7 +5,7 @@ from typing import Iterable, Optional
 import numpy as np
 from pyspark import RDD, SparkContext
 
-from common import get_spark_context, vertices_csv_path
+from common import get_spark_context, vertices_csv_path, centers_csv_path
 
 Point = np.ndarray
 PointWithDist = tuple[Point, np.float64]
@@ -132,7 +132,8 @@ def main():
         changed = not np.array_equal(centers, new_centers)
         centers = new_centers
 
-    print(centers)
+    path = centers_csv_path(dataset)
+    np.savetxt(path, centers, delimiter=",")
 
 
 if __name__ == "__main__":
