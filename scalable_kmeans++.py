@@ -4,8 +4,9 @@ from typing import Iterable, Optional
 
 import numpy as np
 from pyspark import RDD, SparkContext
+from sklearn.cluster import kmeans_plusplus
 
-from common import get_spark_context, vertices_csv_path, centers_csv_path
+from common import centers_csv_path, get_spark_context, vertices_csv_path
 
 Point = np.ndarray
 PointWithDist = tuple[Point, np.float64]
@@ -76,7 +77,8 @@ def main():
         new_centers = points_with_dist.mapPartitionsWithIndex(filter)
         return np.vstack(new_centers.collect())
 
-    for i in np.arange(np.log2(cost)):
+    for i in range(int(np.log2(cost))):
+        # Skip this in the first iteration since it has already been done.
         if i != 0:
             points_with_dist = update_distances()
             cost = compute_cost()
@@ -84,22 +86,18 @@ def main():
         new_centers = sample()
         centers = union(centers, new_centers)
 
+    # Compute the weights for each center
+    def representative(point: Point) -> int:
+        distances = np.linalg.norm(centers - point, axis=1)
+        return (np.argmin(distances),)
+
+    weights = points.map(representative).countByKey()
+    weights = np.fromiter(map(lambda x: x[1], sorted(weights.items())), dtype=int)
+
     ### k-means++ to cluster the points from k-means|| to k
-    old_centers = centers
-    centers = np.reshape(rng.choice(old_centers), (1, -1))
-
-    def compute_distances() -> np.ndarray:
-        distances = (
-            np.min(np.square(np.linalg.norm(centers - point))) for point in old_centers
-        )
-        return np.fromiter(distances, dtype=np.float64)
-
-    while len(centers) < k:
-        distances = compute_distances()
-        cost = np.sum(distances)
-        p = distances / cost
-        new_center = np.reshape(rng.choice(old_centers, p=p), (1, -1))
-        centers = union(centers, new_center)
+    centers, _ = kmeans_plusplus(
+        centers, k, random_state=np.random.RandomState(seed), sample_weight=weights
+    )
 
     ### Lloyds
     def closest_center(point: Point) -> tuple[int, Point]:
@@ -125,7 +123,7 @@ def main():
         new_centers = partial_mean.mapValues(lambda x: x[0] / x[1])
 
         new_centers = new_centers.collect()
-        new_centers = sorted(new_centers, key=lambda x: x[0])
+        new_centers = sorted(new_centers)
         new_centers = list(map(lambda x: x[1], new_centers))
         new_centers = np.vstack(new_centers)
 
