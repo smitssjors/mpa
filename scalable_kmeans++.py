@@ -75,7 +75,13 @@ def main():
                     yield point[0]
 
         new_centers = points_with_dist.mapPartitionsWithIndex(filter)
-        return np.vstack(new_centers.collect())
+        new_centers = new_centers.collect()
+
+        # It can happen that we sample 0 centers.
+        if not new_centers:
+            return np.array([]).reshape((0, 2))
+
+        return np.vstack(new_centers)
 
     for i in range(int(np.log2(cost))):
         # Skip this in the first iteration since it has already been done.
