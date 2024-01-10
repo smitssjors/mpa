@@ -64,7 +64,7 @@ def main():
 
     cost = compute_cost()
 
-    def sample() -> np.arange:
+    def sample() -> np.ndarray:
         _seed = rng.integers(0, sys.maxsize)
 
         def filter(split: int, points: Iterable[PointWithDist]) -> Iterable[Point]:
@@ -87,7 +87,7 @@ def main():
         centers = union(centers, new_centers)
 
     # Compute the weights for each center
-    def representative(point: Point) -> int:
+    def representative(point: Point) -> tuple[int]:
         distances = np.linalg.norm(centers - point, axis=1)
         return (np.argmin(distances),)
 
