@@ -102,7 +102,7 @@ def main():
 
     ### k-means++ to cluster the points from k-means|| to k
     centers, _ = kmeans_plusplus(
-        centers, k, random_state=np.random.RandomState(seed), sample_weight=weights
+        centers, k, random_state=seed, sample_weight=weights
     )
 
     ### Lloyds
