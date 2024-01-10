@@ -101,9 +101,7 @@ def main():
     weights = np.fromiter(map(lambda x: x[1], sorted(weights.items())), dtype=int)
 
     ### k-means++ to cluster the points from k-means|| to k
-    centers, _ = kmeans_plusplus(
-        centers, k, random_state=seed, sample_weight=weights
-    )
+    centers, _ = kmeans_plusplus(centers, k, random_state=seed, sample_weight=weights)
 
     ### Lloyds
     def closest_center(point: Point) -> tuple[int, Point]:
