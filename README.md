@@ -2,30 +2,23 @@
 
 This repo contains the code for both the MPA assignments.
 
-## Assignment 1
+## Getting started
 
-Instead of just points, each point has a radius making them into balls. We then
-check how the clustering is affected by using random radiusses for the balls.
+First install the dependencies. Also make sure you have Spark installed.
+```sh
+pip install -r requirements.txt
+```
 
-### Generating data
+Download the [McDonalds dataset](https://www.kaggle.com/datasets/ben1989/mcdonalds-locations). Then extract the CSV file into `data/mcdonalds/v.csv`.
 
-Using `sklearn` we can generate data. This data then has to be converted to a
-graph. For each pair of vertices we compute the euclidean distance. Furthermore,
-we give each vertex a random radius.
+Then run
+```sh
+spark-submit prepare_data.py
+```
+to prepare the data and download the other datasets.
 
-### Computing MST
-
-We use the edge sampling algorithm. For the balls we have to check whether it is
-faster to first preprocess the graph or take the radius into consideration
-during execution. Each machine has a copy of $V$ so it might be faster to not
-pre-process.
-
-~~The random sampling can be done by first prepending a random key to an edge
-(i.e., `(534, e)` where $e \in E$), and then using `RDD.partitionBy`.~~ This is done internaly by `RDD.repartition`.
-
-### Visualization
-
-To find the clusters a user speciefies that there should be $k$ clusters in the
-dataset. The algorithm finds the $k-1$ largest edges and removes them. Then the
-tree becomes a forest and we draw each of the trees in the forest a different
-colour.
+Finally you can run the clustering with for example
+```sh
+spark-submit scalable_kmeans++.py housing 100
+```
+to run the k-mean algorithm on the housing dataset with k=100
