@@ -1,4 +1,5 @@
 import sys
+import math
 from argparse import ArgumentParser
 from typing import Iterable, Optional
 
@@ -44,7 +45,15 @@ def main():
     rng = np.random.default_rng(seed)
 
     sc = get_spark_context("k-means|| -> k-means++ -> lloyd's")
-    points = get_points(sc, dataset).repartition(12)
+    points = get_points(sc, dataset)
+    points = points.repartition(math.ceil(points.count() / 346))
+
+
+    # Derive the memory per machine from the initial number of partitions spark creates.
+    num_machines = points.getNumPartitions()
+    memory_per_machine = math.ceil(points.count() / num_machines)
+
+    print(f"{num_machines=}, {memory_per_machine=}")
 
     ### Start of k-means||
     # Pick and initial center at random.
