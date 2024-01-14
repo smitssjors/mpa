@@ -20,7 +20,13 @@ spark-submit prepare_data.py
 
 to prepare the data and download the other datasets.
 
-Finally you can run the clustering with for example
+You can run the mst edge sampling with for example
+
+```sh
+spark-submit mst_edge_sampling.py housing
+```
+
+Finally you can run the kmeans clustering with for example
 
 ```sh
 spark-submit scalable_kmeans++.py housing 100
