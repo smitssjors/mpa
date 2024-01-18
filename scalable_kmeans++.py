@@ -1,5 +1,6 @@
+import csv
 import sys
-import math
+import time
 from argparse import ArgumentParser
 from typing import Iterable, Optional
 
@@ -45,15 +46,9 @@ def main():
     rng = np.random.default_rng(seed)
 
     sc = get_spark_context("k-means|| -> k-means++ -> lloyd's")
-    points = get_points(sc, dataset)
-    points = points.repartition(math.ceil(points.count() / 346))
+    points = get_points(sc, dataset).repartition(12)
 
-
-    # Derive the memory per machine from the initial number of partitions spark creates.
-    num_machines = points.getNumPartitions()
-    memory_per_machine = math.ceil(points.count() / num_machines)
-
-    print(f"{num_machines=}, {memory_per_machine=}")
+    start_time = time.perf_counter_ns()
 
     ### Start of k-means||
     # Pick and initial center at random.
@@ -143,8 +138,17 @@ def main():
         changed = not np.array_equal(centers, new_centers)
         centers = new_centers
 
-    path = centers_csv_path(dataset)
-    np.savetxt(path, centers, delimiter=",")
+    final_time = time.perf_counter_ns() - start_time
+
+    with open("data/stats.csv", "a", newline="") as stats:
+        writer = csv.writer(stats)
+        dataset, n = dataset.split("-")
+        writer.writerow((dataset, n, final_time, k))
+
+    print(final_time)
+
+    # path = centers_csv_path(dataset)
+    # np.savetxt(path, centers, delimiter=",")
 
 
 if __name__ == "__main__":
